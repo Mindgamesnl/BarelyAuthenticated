@@ -2,7 +2,7 @@ BungeeCord - BarelyAuthenticated edition
 ==========
 A simple fork that has fallback measures on redis for when mojang craps out. Build for BlockParty by barelyalive. It works by caching gameprofiles based on player's ip address and name, when the Mojang api is detected to be unstable, it'll fall back on its own cache to accept players who joined before. New players won't be able to join until mojang is back up.
 
-Config options:
+The following options will be added and required to be filled in in your bungeecord config.yml:
  - `mojangFailsBeforeFallback` (int) The amount of times mojang is allowed to fail before falling back to REDIS.
  - `mojangSuccessesBeforeOnline` (int) The amount of times mojang should succeed before we switch back to their session server
  - `mojangAttemptInterval` (int) is the join interval for re-attempts to mojang. Defaults to 20, so for every 20 NEW players that try to join, one will get an actual mojang attemp. This can impact performance in scenarios where you have an absolute ass load of players trying to login at once so keep it as high as possible.
