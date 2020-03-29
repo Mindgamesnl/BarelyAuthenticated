@@ -3,6 +3,8 @@ package net.md_5.bungee.redis.service;
 import io.lettuce.core.ClientOptions;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisURI;
+import io.lettuce.core.api.StatefulRedisConnection;
+import io.lettuce.core.api.sync.RedisCommands;
 import io.lettuce.core.pubsub.StatefulRedisPubSubConnection;
 import io.lettuce.core.pubsub.api.async.RedisPubSubAsyncCommands;
 import lombok.Getter;
@@ -13,9 +15,12 @@ public class RedisService {
 
     private RedisClient redisPub;
     private RedisClient redisSub;
+    private RedisClient redisData;
     private RedisURI uri;
     private StatefulRedisPubSubConnection<String, String> redisSubConnection;
     private StatefulRedisPubSubConnection<String, String> redisPubConnection;
+    private StatefulRedisConnection<String, String> databaseConnection;
+    private RedisCommands<String, String> dataHandler;
     @Getter
     private RedisPubSubAsyncCommands<String, String> asyncSub;
     private RedisPubSubAsyncCommands<String, String> asyncPub;
@@ -48,12 +53,25 @@ public class RedisService {
         redisSubConnection.addListener(new RedisChannelListener());
         asyncSub = redisSubConnection.async();
 
-
         // set up publisher
         redisPub = RedisClient.create(uri);
         redisPub.setOptions(ClientOptions.builder().autoReconnect(true).build());
         redisPubConnection = redisPub.connectPubSub();
         asyncPub = redisPubConnection.async();
+
+        // set up db
+        redisData = RedisClient.create(uri);
+        redisData.setOptions(ClientOptions.builder().autoReconnect(true).build());
+        databaseConnection = redisData.connectPubSub();
+        dataHandler = databaseConnection.sync();
+    }
+
+    public void setValue(String key, String value) {
+        dataHandler.set(key, value);
+    }
+
+    public String setValue(String key) {
+        return dataHandler.get(key);
     }
 
     public void sendMessage(String channel, String message) {

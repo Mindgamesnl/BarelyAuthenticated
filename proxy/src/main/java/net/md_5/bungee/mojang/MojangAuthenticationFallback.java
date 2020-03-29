@@ -21,7 +21,7 @@ public class MojangAuthenticationFallback {
     }
 
     private void onUpdate(boolean isReliable) {
-        
+
     }
 
     public void registerFailure() {
