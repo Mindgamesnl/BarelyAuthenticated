@@ -14,5 +14,10 @@ The following options will be added and required to be filled in in your bungeec
  - `redisDatabase` (int) The database index to use, defaults to 15
  - `redisUsesSSL` (boolean) If redis should connect over TLS with your redis server. Defaults to false. I don't know why you would want to but you can.
  
+ # Notes
+  - Using the `preferRedisAuthentication` will seriously load your redis server if you have a big server. Note that we used a mid-tier AWS redis, but you need to see what's right for you.
+  - I don't hold any rights for BungeeCord itself, that goes to md_5 and other contributors.
+  - This fork contains the Waterfall patches, I don't hold any rights for those.
+ 
  # Help
  If this came in handy, please consider donating at http://donate.craftmend.com/. If you need any help, just contact me.
