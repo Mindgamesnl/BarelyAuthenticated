@@ -39,7 +39,9 @@ import net.md_5.bungee.api.event.ServerConnectEvent;
 import net.md_5.bungee.chat.ComponentSerializer;
 import net.md_5.bungee.http.HttpClient;
 import net.md_5.bungee.jni.cipher.BungeeCipher;
+import net.md_5.bungee.mojang.models.CachedPair;
 import net.md_5.bungee.mojang.MojangAuthenticationFallback;
+import net.md_5.bungee.mojang.models.StoredProfile;
 import net.md_5.bungee.netty.ChannelWrapper;
 import net.md_5.bungee.netty.HandlerBoss;
 import net.md_5.bungee.netty.PacketHandler;
@@ -416,6 +418,7 @@ public class InitialHandler extends PacketHandler implements PendingConnection
     public void handle(final EncryptionResponse encryptResponse) throws Exception
     {
         Preconditions.checkState( thisState == State.ENCRYPT, "Not expecting ENCRYPT" );
+        MojangAuthenticationFallback authenticationFallback = MojangAuthenticationFallback.getInstance();
 
         SecretKey sharedKey = EncryptionUtil.getSecret( encryptResponse, request );
         BungeeCipher decrypt = EncryptionUtil.getCipher( false, sharedKey );
@@ -438,34 +441,51 @@ public class InitialHandler extends PacketHandler implements PendingConnection
         String preventProxy = ( BungeeCord.getInstance().config.isPreventProxyConnections() && getSocketAddress() instanceof InetSocketAddress ) ? "&ip=" + URLEncoder.encode( getAddress().getAddress().getHostAddress(), "UTF-8" ) : "";
         String authURL = "https://sessionserver.mojang.com/session/minecraft/hasJoined?username=" + encName + "&serverId=" + encodedHash + preventProxy;
 
-        Callback<String> handler = new Callback<String>()
-        {
-            @Override
-            public void done(String result, Throwable error)
+        Callback<String> handler = (result, error) -> {
+            if ( error == null )
             {
-                if ( error == null )
+                LoginResult obj = BungeeCord.getInstance().gson.fromJson( result, LoginResult.class );
+                if ( obj != null && obj.getId() != null )
                 {
-                    LoginResult obj = BungeeCord.getInstance().gson.fromJson( result, LoginResult.class );
-                    if ( obj != null && obj.getId() != null )
-                    {
-                        loginProfile = obj;
-                        name = obj.getName();
-                        uniqueId = Util.getUUID( obj.getId() );
-                        finish();
-                        MojangAuthenticationFallback.getInstance().pushIpAddress(uniqueId, getAddress().getAddress().toString());
-                        MojangAuthenticationFallback.getInstance().registerSuccess();
-                        return;
-                    }
-                    disconnect( bungee.getTranslation( "offline_mode_player" ) );
-                    MojangAuthenticationFallback.getInstance().registerFailure();
-                } else
-                {
-                    MojangAuthenticationFallback.getInstance().registerFailure();
-                    disconnect( bungee.getTranslation( "mojang_fail" ) );
-                    bungee.getLogger().log( Level.SEVERE, "Error authenticating " + getName() + " with minecraft.net", error );
+                    loginProfile = obj;
+                    name = obj.getName();
+                    uniqueId = Util.getUUID( obj.getId() );
+                    finish();
+                    StoredProfile storedProfile = new StoredProfile(name, uniqueId, getAddress().getAddress().toString(), loginProfile);
+                    authenticationFallback.pushPlayer(name, storedProfile);
+                    authenticationFallback.registerSuccess();
+                    return;
                 }
+                disconnect( bungee.getTranslation( "offline_mode_player" ) );
+                authenticationFallback.registerFailure();
+            } else
+            {
+                authenticationFallback.registerFailure();
+                disconnect( bungee.getTranslation( "mojang_fail" ) );
+                bungee.getLogger().log( Level.SEVERE, "Error authenticating " + getName() + " with minecraft.net", error );
             }
         };
+
+        // if mojang isnt reliable, we need to take matters into our own hands
+        if (!authenticationFallback.isMojangReliable() || authenticationFallback.isRedisPreferred()) {
+            // load cached profile
+            CachedPair cachedAccount = authenticationFallback.validate(encName, getAddress().getAddress().toString());
+            if (cachedAccount.isValid()) {
+                // fake profile
+                loginProfile = cachedAccount.getStoredProfile().getProfile();
+                name = cachedAccount.getStoredProfile().getName();
+                uniqueId = cachedAccount.getStoredProfile().getUuid();
+                bungee.getLogger().log( Level.INFO, "Player " + encName + " logged in via redis validation because mojang is deemed unstable");
+                finish();
+                return;
+            } else {
+                if (!authenticationFallback.shouldAttemptMojang()) {
+                    disconnect( "Mojang's Authentication Servers are Currently Unavailable! Please join back later!" );
+                    bungee.getLogger().log( Level.SEVERE, "Error authenticating " + encName + " with minecraft.net but it is also not in ba");
+                    return;
+                }
+            }
+        }
 
         HttpClient.get( authURL, ch.getHandle().eventLoop(), handler );
     }

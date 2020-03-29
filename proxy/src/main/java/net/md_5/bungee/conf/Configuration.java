@@ -48,6 +48,8 @@ public class Configuration implements ProxyConfig
     private String redisPassword = "none";
     private int redisDatabase = 15;
     private boolean redisUsesSSL = false;
+    private int mojangAttemptInterval = 20;
+    private boolean preferRedisAuthentication = true;
 
     /**
      * Set of all servers.
@@ -100,6 +102,8 @@ public class Configuration implements ProxyConfig
         redisPassword = adapter.getString( "redisPassword", redisPassword );
         redisDatabase = adapter.getInt( "redisDatabase", redisDatabase );
         redisUsesSSL = adapter.getBoolean( "redisUsesSSL", redisUsesSSL );
+        mojangAttemptInterval = adapter.getInt("mojangAttemptInterval", mojangAttemptInterval);
+        preferRedisAuthentication = adapter.getBoolean("preferRedisAuthentication", preferRedisAuthentication);
 
         listeners = adapter.getListeners();
         timeout = adapter.getInt( "timeout", timeout );

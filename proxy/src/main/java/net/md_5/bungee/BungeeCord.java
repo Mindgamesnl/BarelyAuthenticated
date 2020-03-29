@@ -436,6 +436,7 @@ public class BungeeCord extends ProxyServer
         }
         isRunning = false;
 
+        redisConnector.stop();
         stopListeners();
         getLogger().info( "Closing pending connections" );
 

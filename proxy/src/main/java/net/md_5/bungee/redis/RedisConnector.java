@@ -19,4 +19,7 @@ public class RedisConnector {
         );
     }
 
+    public void stop() {
+        this.redisService.shutdown();
+    }
 }
