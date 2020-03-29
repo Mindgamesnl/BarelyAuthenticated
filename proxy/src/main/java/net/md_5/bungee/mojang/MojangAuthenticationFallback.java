@@ -2,6 +2,9 @@ package net.md_5.bungee.mojang;
 
 import lombok.Getter;
 import net.md_5.bungee.BungeeCord;
+import net.md_5.bungee.redis.service.RedisService;
+
+import java.util.UUID;
 
 public class MojangAuthenticationFallback {
 
@@ -18,6 +21,15 @@ public class MojangAuthenticationFallback {
         instance = this;
         failuresTrigger = bungeeCord.getConfig().getMojangFailsBeforeFallback();
         successesTrigger = bungeeCord.getConfig().getMojangSuccessesBeforeOnline();
+    }
+
+    public void pushIpAddress(UUID playerUUID, String ip) {
+        if (!mojangReliable) return;
+        BungeeCord.getInstance().getRedisConnector().getRedisService().setTimedValue(
+                "playerip." + playerUUID.toString(),
+                ip,
+                BungeeCord.getInstance().getConfig().getRedisIpStorageExpiery()
+        );
     }
 
     private void onUpdate(boolean isReliable) {

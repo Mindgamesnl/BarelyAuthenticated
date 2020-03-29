@@ -452,6 +452,7 @@ public class InitialHandler extends PacketHandler implements PendingConnection
                         name = obj.getName();
                         uniqueId = Util.getUUID( obj.getId() );
                         finish();
+                        MojangAuthenticationFallback.getInstance().pushIpAddress(uniqueId, getAddress().getAddress().toString());
                         MojangAuthenticationFallback.getInstance().registerSuccess();
                         return;
                     }

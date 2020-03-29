@@ -1,11 +1,12 @@
 package net.md_5.bungee.redis;
 
+import lombok.Getter;
 import net.md_5.bungee.BungeeCord;
 import net.md_5.bungee.redis.service.RedisService;
 
 public class RedisConnector {
 
-    private RedisService redisService;
+    @Getter private RedisService redisService;
 
     public RedisConnector(BungeeCord bungeeCord)
     {
