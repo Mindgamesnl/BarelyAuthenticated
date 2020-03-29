@@ -34,6 +34,7 @@ public class RedisService {
                     .withHost(host)
                     .withPort(port)
                     .withSsl(useSSL)
+                    .withDatabase(database)
                     .build();
         } else {
             uri = RedisURI.builder()
@@ -41,6 +42,7 @@ public class RedisService {
                     .withHost(host)
                     .withPort(port)
                     .withSsl(useSSL)
+                    .withDatabase(database)
                     .build();
         }
 
@@ -62,7 +64,7 @@ public class RedisService {
         // set up db
         redisData = RedisClient.create(uri);
         redisData.setOptions(ClientOptions.builder().autoReconnect(true).build());
-        databaseConnection = redisData.connectPubSub();
+        databaseConnection = redisData.connect();
         dataHandler = databaseConnection.sync();
     }
 
@@ -70,7 +72,7 @@ public class RedisService {
         dataHandler.set(key, value);
     }
 
-    public String setValue(String key) {
+    public String getValue(String key) {
         return dataHandler.get(key);
     }
 
