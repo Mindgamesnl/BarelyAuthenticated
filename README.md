@@ -2,10 +2,6 @@ BungeeCord - BarelyAuthenticated edition
 ==========
 A simple fork that has fallback measures on redis for when mojang craps out. Build for BlockParty by barelyalive. It works by caching gameprofiles based on player's ip address and name, when the Mojang api is detected to be unstable, it'll fall back on its own cache to accept players who joined before. New players won't be able to join until mojang is back up.
 
-# Side effects
- - Because the server will use a fallback in case of a mojang outage, skins will not update (or possibly even be showing an old skin)
- - If redis is prefered, skinds will take longer to update
-
 # Setup
 The following options will be added and required to be filled in in your bungeecord config.yml:
  - `mojangFailsBeforeFallback` (int) The amount of times mojang is allowed to fail before falling back to REDIS.
@@ -23,6 +19,9 @@ The following options will be added and required to be filled in in your bungeec
   - Using the `preferRedisAuthentication` will seriously load your redis server if you have a big server. Note that we used a mid-tier AWS redis, but you need to see what's right for you.
   - I don't hold any rights for BungeeCord itself, that goes to md_5 and other contributors.
   - This fork contains the Waterfall patches, I don't hold any rights for those.
+  - Because the server will use a fallback in case of a mojang outage, skins will not update (or possibly even be showing an old skin)
+  - If redis is prefered, skinds will take longer to update
+  - At its core, it's still bungeecord. All bungeecord plugins (even auth based ones like LuckPerms) will work perfectly fine
  
  # Help
  If this came in handy, please consider donating at http://donate.craftmend.com/. If you need any help, just contact me.
