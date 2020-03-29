@@ -42,6 +42,7 @@ public class Configuration implements ProxyConfig
 
     private int mojangFailsBeforeFallback = 5;
     private int mojangSuccessesBeforeOnline = 15;
+    private int redisIpStorageExpiery = 3600; // 12 hours
     private int redisPort = 6379;
     private String redisHost = "localhost";
     private String redisPassword = "none";
@@ -93,6 +94,7 @@ public class Configuration implements ProxyConfig
 
         mojangFailsBeforeFallback = adapter.getInt("mojangFailsBeforeFallback", mojangFailsBeforeFallback);
         mojangSuccessesBeforeOnline = adapter.getInt("mojangSuccessesBeforeOnline", mojangSuccessesBeforeOnline);
+        redisIpStorageExpiery = adapter.getInt("redisIpStorageExpiery", redisIpStorageExpiery);
         redisPort = adapter.getInt( "redisPort", redisPort );
         redisHost = adapter.getString( "redisHost", redisHost );
         redisPassword = adapter.getString( "redisPassword", redisPassword );

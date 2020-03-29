@@ -72,6 +72,10 @@ public class RedisService {
         dataHandler.set(key, value);
     }
 
+    public void setTimedValue(String key, String value, long seconds) {
+        dataHandler.setex(key, seconds, value);
+    }
+
     public String getValue(String key) {
         return dataHandler.get(key);
     }
