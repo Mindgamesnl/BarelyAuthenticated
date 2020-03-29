@@ -93,6 +93,7 @@ import net.md_5.bungee.protocol.ProtocolConstants;
 import net.md_5.bungee.protocol.packet.Chat;
 import net.md_5.bungee.protocol.packet.PluginMessage;
 import net.md_5.bungee.query.RemoteQuery;
+import net.md_5.bungee.redis.RedisConnector;
 import net.md_5.bungee.scheduler.BungeeScheduler;
 import net.md_5.bungee.util.CaseInsensitiveMap;
 import org.fusesource.jansi.AnsiConsole;
@@ -145,6 +146,7 @@ public class BungeeCord extends ProxyServer
      */
     @Getter
     public final PluginManager pluginManager;
+    @Getter private RedisConnector redisConnector;
     @Getter
     @Setter
     private ReconnectHandler reconnectHandler;
@@ -218,6 +220,8 @@ public class BungeeCord extends ProxyServer
         logger = new BungeeLogger( "BungeeCord", "proxy.log", consoleReader );
         System.setErr( new PrintStream( new LoggingOutputStream( logger, Level.SEVERE ), true ) );
         System.setOut( new PrintStream( new LoggingOutputStream( logger, Level.INFO ), true ) );
+
+        redisConnector = new RedisConnector(this);
 
         pluginManager = new PluginManager( this );
         getPluginManager().registerCommand( null, new CommandReload() );

@@ -39,6 +39,15 @@ public class Configuration implements ProxyConfig
      * Set of all listeners.
      */
     private Collection<ListenerInfo> listeners;
+
+    private int mojangFailsBeforeFallback = 5;
+    private int mojangSuccessesBeforeOnline = 15;
+    private int redisPort = 6379;
+    private String redisHost = "localhost";
+    private String redisPassword = "none";
+    private int redisDatabase = 15;
+    private boolean redisUsesSSL = false;
+
     /**
      * Set of all servers.
      */
@@ -81,6 +90,14 @@ public class Configuration implements ProxyConfig
                 ProxyServer.getInstance().getLogger().log( Level.WARNING, "Could not load server icon", ex );
             }
         }
+
+        mojangFailsBeforeFallback = adapter.getInt("mojangFailsBeforeFallback", mojangFailsBeforeFallback);
+        mojangSuccessesBeforeOnline = adapter.getInt("mojangSuccessesBeforeOnline", mojangSuccessesBeforeOnline);
+        redisPort = adapter.getInt( "redisPort", redisPort );
+        redisHost = adapter.getString( "redisHost", redisHost );
+        redisPassword = adapter.getString( "redisPassword", redisPassword );
+        redisDatabase = adapter.getInt( "redisDatabase", redisDatabase );
+        redisUsesSSL = adapter.getBoolean( "redisUsesSSL", redisUsesSSL );
 
         listeners = adapter.getListeners();
         timeout = adapter.getInt( "timeout", timeout );
