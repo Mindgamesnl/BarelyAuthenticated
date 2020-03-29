@@ -32,6 +32,12 @@ public class MojangAuthenticationFallback {
         );
     }
 
+    public boolean validate(UUID uuid, String ip) {
+        String stored = BungeeCord.getInstance().getRedisConnector().getRedisService().getValue("playerip." + uuid.toString());
+        if (stored == null) return false;
+        return stored.equals(ip);
+    }
+
     private void onUpdate(boolean isReliable) {
 
     }
