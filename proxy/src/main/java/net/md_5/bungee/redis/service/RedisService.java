@@ -1,7 +1,5 @@
 package net.md_5.bungee.redis.service;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import io.lettuce.core.ClientOptions;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisURI;

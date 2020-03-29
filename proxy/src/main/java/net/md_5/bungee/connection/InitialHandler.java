@@ -39,6 +39,7 @@ import net.md_5.bungee.api.event.ServerConnectEvent;
 import net.md_5.bungee.chat.ComponentSerializer;
 import net.md_5.bungee.http.HttpClient;
 import net.md_5.bungee.jni.cipher.BungeeCipher;
+import net.md_5.bungee.mojang.MojangAuthenticationFallback;
 import net.md_5.bungee.netty.ChannelWrapper;
 import net.md_5.bungee.netty.HandlerBoss;
 import net.md_5.bungee.netty.PacketHandler;
@@ -451,11 +452,14 @@ public class InitialHandler extends PacketHandler implements PendingConnection
                         name = obj.getName();
                         uniqueId = Util.getUUID( obj.getId() );
                         finish();
+                        MojangAuthenticationFallback.getInstance().registerSuccess();
                         return;
                     }
                     disconnect( bungee.getTranslation( "offline_mode_player" ) );
+                    MojangAuthenticationFallback.getInstance().registerFailure();
                 } else
                 {
+                    MojangAuthenticationFallback.getInstance().registerFailure();
                     disconnect( bungee.getTranslation( "mojang_fail" ) );
                     bungee.getLogger().log( Level.SEVERE, "Error authenticating " + getName() + " with minecraft.net", error );
                 }
