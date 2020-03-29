@@ -125,4 +125,52 @@ public interface ProxyConfig
      * @return favicon
      */
     Favicon getFaviconObject();
+
+    //
+    // Waterfall Options
+    //
+
+    /**
+     * Whether we log InitialHandler connections
+     *
+     * @return whether we log InitialHandler connections
+     */
+    boolean isLogInitialHandlerConnections();
+
+    /**
+     * The supported versions
+     *
+     * @return the supported versions
+     */
+    String getGameVersion();
+
+    /**
+     * Whether Netty's async DNS resolver is used for account authentication.
+     *
+     * @return whether Netty's async DNS resolver is used for account authentication.
+     */
+    boolean isUseNettyDnsResolver();
+
+    // Throttling options
+
+    /**
+     * How often tab-complete packets can be sent.
+     * <br>
+     * Values in milliseconds.
+     *
+     * @return how often tab-complete packets can be sent in milliseconds
+     */
+    int getTabThrottle();
+
+    /**
+     * Should we disable the tab completion limit for 1.13+ clients
+     *
+     * @return should we disable the tab completion limit for 1.13+ clients
+     */
+    boolean isDisableModernTabLimiter();
+
+    /**
+     * @return Should we disable entity metadata rewriting?
+     */
+    boolean isDisableEntityMetadataRewrite();
 }

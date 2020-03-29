@@ -280,10 +280,14 @@ public class InitialHandler extends PacketHandler implements PendingConnection
         thisState = State.PING;
     }
 
+    private static final boolean ACCEPT_INVALID_PACKETS = Boolean.parseBoolean(System.getProperty("waterfall.acceptInvalidPackets", "false"));
+
     @Override
     public void handle(PingPacket ping) throws Exception
     {
-        Preconditions.checkState( thisState == State.PING, "Not expecting PING" );
+        if (!ACCEPT_INVALID_PACKETS) {
+            Preconditions.checkState(thisState == State.PING, "Not expecting PING");
+        }
         unsafe.sendPacket( ping );
         disconnect( "" );
     }
@@ -330,7 +334,10 @@ public class InitialHandler extends PacketHandler implements PendingConnection
                 break;
             case 2:
                 // Login
-                bungee.getLogger().log( Level.INFO, "{0} has connected", this );
+                if (BungeeCord.getInstance().getConfig().isLogInitialHandlerConnections() ) // Waterfall
+                {
+                    bungee.getLogger().log( Level.INFO, "{0} has connected", this );
+                }
                 thisState = State.USERNAME;
                 ch.setProtocol( Protocol.LOGIN );
 
@@ -587,7 +594,7 @@ public void handle(final EncryptionResponse encryptResponse) throws Exception
         };
 
         // fire login event
-        bungee.getPluginManager().callEvent( new LoginEvent( InitialHandler.this, complete ) );
+        bungee.getPluginManager().callEvent( new LoginEvent( InitialHandler.this, complete, this.getLoginProfile() ) ); // Waterfall: Parse LoginResult object to new constructor of LoginEvent
     }
 
     @Override
@@ -677,26 +684,13 @@ public void handle(final EncryptionResponse encryptResponse) throws Exception
     @Override
     public String getUUID()
     {
-        return uniqueId.toString().replace( "-", "" );
+        return io.github.waterfallmc.waterfall.utils.UUIDUtils.undash( uniqueId.toString() ); // Waterfall
     }
 
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder();
-        sb.append( '[' );
-
-        String currentName = getName();
-        if ( currentName != null )
-        {
-            sb.append( currentName );
-            sb.append( ',' );
-        }
-
-        sb.append( getSocketAddress() );
-        sb.append( "] <-> InitialHandler" );
-
-        return sb.toString();
+        return "[" + getSocketAddress() + ( getName() != null ? "|" + getName() : "" ) + "] <-> InitialHandler";
     }
 
     @Override

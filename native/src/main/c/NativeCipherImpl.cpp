@@ -1,5 +1,7 @@
 // Support for CentOS 6
+#if __linux__ // Waterfall
 __asm__(".symver memcpy,memcpy@GLIBC_2.2.5");
+#endif // Waterfall
 
 #include <stdlib.h>
 #include <string.h>

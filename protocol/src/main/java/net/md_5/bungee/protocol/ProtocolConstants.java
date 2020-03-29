@@ -63,6 +63,16 @@ public class ProtocolConstants
             ProtocolConstants.MINECRAFT_1_15_2
     );
 
+    public static final boolean isBeforeOrEq(int before, int other)
+    {
+            return before <= other;
+    }
+
+    public static final boolean isAfterOrEq(int after, int other)
+    {
+            return after >= other;
+    }
+
     public enum Direction
     {
 
