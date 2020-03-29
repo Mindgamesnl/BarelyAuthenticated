@@ -17,18 +17,18 @@ public class RedisService {
     public RedisService(String host, String password, int port, int database, boolean useSSL) {
         if (password.equals("none")) {
             uri = RedisURI.builder()
+                    .withDatabase(database)
                     .withHost(host)
                     .withPort(port)
                     .withSsl(useSSL)
-                    .withDatabase(database)
                     .build();
         } else {
             uri = RedisURI.builder()
+                    .withDatabase(database)
                     .withPassword(password)
                     .withHost(host)
                     .withPort(port)
                     .withSsl(useSSL)
-                    .withDatabase(database)
                     .build();
         }
 

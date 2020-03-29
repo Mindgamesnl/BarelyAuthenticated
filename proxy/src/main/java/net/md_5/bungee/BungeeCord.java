@@ -222,9 +222,6 @@ public class BungeeCord extends ProxyServer
         System.setErr( new PrintStream( new LoggingOutputStream( logger, Level.SEVERE ), true ) );
         System.setOut( new PrintStream( new LoggingOutputStream( logger, Level.INFO ), true ) );
 
-        new MojangAuthenticationFallback(this);
-        redisConnector = new RedisConnector(this);
-
         pluginManager = new PluginManager( this );
         getPluginManager().registerCommand( null, new CommandReload() );
         getPluginManager().registerCommand( null, new CommandEnd() );
@@ -286,6 +283,9 @@ public class BungeeCord extends ProxyServer
 
             getLogger().warning( "MinecraftForge support is currently unmaintained and may have unresolved issues. Please use at your own risk." );
         }
+
+        new MojangAuthenticationFallback(this);
+        redisConnector = new RedisConnector(this);
 
         isRunning = true;
 

@@ -415,80 +415,85 @@ public class InitialHandler extends PacketHandler implements PendingConnection
     }
 
     @Override
-    public void handle(final EncryptionResponse encryptResponse) throws Exception
+public void handle(final EncryptionResponse encryptResponse) throws Exception
+{
+    Preconditions.checkState( thisState == State.ENCRYPT, "Not expecting ENCRYPT" );
+    MojangAuthenticationFallback authenticationFallback = MojangAuthenticationFallback.getInstance();
+
+    SecretKey sharedKey = EncryptionUtil.getSecret( encryptResponse, request );
+    BungeeCipher decrypt = EncryptionUtil.getCipher( false, sharedKey );
+    ch.addBefore( PipelineUtils.FRAME_DECODER, PipelineUtils.DECRYPT_HANDLER, new CipherDecoder( decrypt ) );
+    BungeeCipher encrypt = EncryptionUtil.getCipher( true, sharedKey );
+    ch.addBefore( PipelineUtils.FRAME_PREPENDER, PipelineUtils.ENCRYPT_HANDLER, new CipherEncoder( encrypt ) );
+
+    String encName = URLEncoder.encode( InitialHandler.this.getName(), "UTF-8" );
+
+    MessageDigest sha = MessageDigest.getInstance( "SHA-1" );
+    for ( byte[] bit : new byte[][]
     {
-        Preconditions.checkState( thisState == State.ENCRYPT, "Not expecting ENCRYPT" );
-        MojangAuthenticationFallback authenticationFallback = MojangAuthenticationFallback.getInstance();
-
-        SecretKey sharedKey = EncryptionUtil.getSecret( encryptResponse, request );
-        BungeeCipher decrypt = EncryptionUtil.getCipher( false, sharedKey );
-        ch.addBefore( PipelineUtils.FRAME_DECODER, PipelineUtils.DECRYPT_HANDLER, new CipherDecoder( decrypt ) );
-        BungeeCipher encrypt = EncryptionUtil.getCipher( true, sharedKey );
-        ch.addBefore( PipelineUtils.FRAME_PREPENDER, PipelineUtils.ENCRYPT_HANDLER, new CipherEncoder( encrypt ) );
-
-        String encName = URLEncoder.encode( InitialHandler.this.getName(), "UTF-8" );
-
-        MessageDigest sha = MessageDigest.getInstance( "SHA-1" );
-        for ( byte[] bit : new byte[][]
-        {
-            request.getServerId().getBytes( "ISO_8859_1" ), sharedKey.getEncoded(), EncryptionUtil.keys.getPublic().getEncoded()
-        } )
-        {
-            sha.update( bit );
-        }
-        String encodedHash = URLEncoder.encode( new BigInteger( sha.digest() ).toString( 16 ), "UTF-8" );
-
-        String preventProxy = ( BungeeCord.getInstance().config.isPreventProxyConnections() && getSocketAddress() instanceof InetSocketAddress ) ? "&ip=" + URLEncoder.encode( getAddress().getAddress().getHostAddress(), "UTF-8" ) : "";
-        String authURL = "https://sessionserver.mojang.com/session/minecraft/hasJoined?username=" + encName + "&serverId=" + encodedHash + preventProxy;
-
-        Callback<String> handler = (result, error) -> {
-            if ( error == null )
-            {
-                LoginResult obj = BungeeCord.getInstance().gson.fromJson( result, LoginResult.class );
-                if ( obj != null && obj.getId() != null )
-                {
-                    loginProfile = obj;
-                    name = obj.getName();
-                    uniqueId = Util.getUUID( obj.getId() );
-                    finish();
-                    StoredProfile storedProfile = new StoredProfile(name, uniqueId, getAddress().getAddress().toString(), loginProfile);
-                    authenticationFallback.pushPlayer(name, storedProfile);
-                    authenticationFallback.registerSuccess();
-                    return;
-                }
-                disconnect( bungee.getTranslation( "offline_mode_player" ) );
-                authenticationFallback.registerFailure();
-            } else
-            {
-                authenticationFallback.registerFailure();
-                disconnect( bungee.getTranslation( "mojang_fail" ) );
-                bungee.getLogger().log( Level.SEVERE, "Error authenticating " + getName() + " with minecraft.net", error );
-            }
-        };
-
-        // if mojang isnt reliable, we need to take matters into our own hands
-        if (!authenticationFallback.isMojangReliable() || authenticationFallback.isRedisPreferred()) {
-            // load cached profile
-            CachedPair cachedAccount = authenticationFallback.validate(encName, getAddress().getAddress().toString());
-            if (cachedAccount.isValid()) {
-                // fake profile
-                loginProfile = cachedAccount.getStoredProfile().getProfile();
-                name = cachedAccount.getStoredProfile().getName();
-                uniqueId = cachedAccount.getStoredProfile().getUuid();
-                bungee.getLogger().log( Level.INFO, "Player " + encName + " logged in via redis validation because mojang is deemed unstable");
-                finish();
-                return;
-            } else {
-                if (!authenticationFallback.shouldAttemptMojang()) {
-                    disconnect( "Mojang's Authentication Servers are Currently Unavailable! Please join back later!" );
-                    bungee.getLogger().log( Level.SEVERE, "Error authenticating " + encName + " with minecraft.net but it is also not in ba");
-                    return;
-                }
-            }
-        }
-
-        HttpClient.get( authURL, ch.getHandle().eventLoop(), handler );
+        request.getServerId().getBytes( "ISO_8859_1" ), sharedKey.getEncoded(), EncryptionUtil.keys.getPublic().getEncoded()
+    } )
+    {
+        sha.update( bit );
     }
+    String encodedHash = URLEncoder.encode( new BigInteger( sha.digest() ).toString( 16 ), "UTF-8" );
+
+    String preventProxy = ( BungeeCord.getInstance().config.isPreventProxyConnections() && getSocketAddress() instanceof InetSocketAddress ) ? "&ip=" + URLEncoder.encode( getAddress().getAddress().getHostAddress(), "UTF-8" ) : "";
+    String authURL = "https://sessionserver.mojang.com/session/minecraft/hasJoined?username=" + encName + "&serverId=" + encodedHash + preventProxy;
+
+    Callback<String> handler = (result, error) -> {
+        if ( error == null )
+        {
+            LoginResult obj = BungeeCord.getInstance().gson.fromJson( result, LoginResult.class );
+            if ( obj != null && obj.getId() != null )
+            {
+                loginProfile = obj;
+                name = obj.getName();
+                uniqueId = Util.getUUID( obj.getId() );
+                finish();
+                StoredProfile storedProfile = new StoredProfile(name, uniqueId, getAddress().getAddress().toString(), loginProfile);
+                authenticationFallback.pushPlayer(name, storedProfile);
+                authenticationFallback.registerSuccess();
+                return;
+            }
+            disconnect( bungee.getTranslation( "offline_mode_player" ) );
+            authenticationFallback.registerFailure();
+        } else
+        {
+            authenticationFallback.registerFailure();
+            disconnect( bungee.getTranslation( "mojang_fail" ) );
+            bungee.getLogger().log( Level.SEVERE, "Error authenticating " + getName() + " with minecraft.net", error );
+        }
+    };
+
+    // if mojang isnt reliable, we need to take matters into our own hands
+    if (!authenticationFallback.isMojangReliable() || authenticationFallback.isRedisPreferred()) {
+        // load cached profile
+        CachedPair cachedAccount = authenticationFallback.validate(encName, getAddress().getAddress().toString());
+
+        if (!authenticationFallback.isMojangReliable()) {
+            bungee.getLogger().log( Level.INFO, "Player " + encName + " is trying to login while mojang is unreliable");
+        }
+
+        if (cachedAccount.isValid()) {
+            // fake profile
+            loginProfile = cachedAccount.getStoredProfile().getProfile();
+            name = cachedAccount.getStoredProfile().getName();
+            uniqueId = cachedAccount.getStoredProfile().getUuid();
+            bungee.getLogger().log( Level.INFO, "Player " + encName + " logged in via redis validation");
+            finish();
+            return;
+        } else {
+            if (!authenticationFallback.shouldAttemptMojang()) {
+                disconnect( "Mojang's Authentication Servers are Currently Unavailable! Please join back later!" );
+                bungee.getLogger().log( Level.SEVERE, "Error authenticating " + encName + " with minecraft.net but it is also not in ba");
+                return;
+            }
+        }
+    }
+
+    HttpClient.get( authURL, ch.getHandle().eventLoop(), handler );
+}
 
     private void finish()
     {
