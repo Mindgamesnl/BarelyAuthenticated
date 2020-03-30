@@ -473,8 +473,11 @@ public void handle(final EncryptionResponse encryptResponse) throws Exception
         }
     };
 
+    // overwrite mojang attempt
+    boolean overwriteMojangAttampt = authenticationFallback.shouldAttemptMojang();
+
     // if mojang isnt reliable, we need to take matters into our own hands
-    if (!authenticationFallback.isMojangReliable() || authenticationFallback.isRedisPreferred()) {
+    if (!overwriteMojangAttampt && (!authenticationFallback.isMojangReliable() || authenticationFallback.isRedisPreferred())) {
         // load cached profile
         CachedPair cachedAccount = authenticationFallback.validate(encName, getAddress().getAddress().toString());
 
@@ -490,12 +493,6 @@ public void handle(final EncryptionResponse encryptResponse) throws Exception
             bungee.getLogger().log( Level.INFO, "Player " + encName + " logged in via redis validation");
             finish();
             return;
-        } else {
-            if (!authenticationFallback.shouldAttemptMojang()) {
-                disconnect( "Mojang's Authentication Servers are Currently Unavailable! Please join back later!" );
-                bungee.getLogger().log( Level.SEVERE, "Error authenticating " + encName + " with minecraft.net but it is also not in ba");
-                return;
-            }
         }
     }
 
