@@ -7,6 +7,7 @@ import io.netty.buffer.ByteBufInputStream;
 import java.io.IOException;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
+
 import net.md_5.bungee.protocol.DefinedPacket;
 import net.md_5.bungee.protocol.ProtocolConstants;
 
@@ -26,6 +27,11 @@ public abstract class EntityMap
     // Returns the correct entity map for the protocol version
     public static EntityMap getEntityMap(int version)
     {
+        // Waterfall start
+        if (net.md_5.bungee.api.ProxyServer.getInstance().getConfig().isDisableEntityMetadataRewrite()) {
+            return EntityMap_Dummy.INSTANCE;
+        }
+        // Waterfall end
         switch ( version )
         {
             case ProtocolConstants.MINECRAFT_1_8:
@@ -278,7 +284,13 @@ public abstract class EntityMap
                     DefinedPacket.readVarInt( packet );
                     break;
                 default:
-                    throw new IllegalArgumentException( "Unknown meta type " + type );
+                    // Waterfall start - Don't lie
+                    if ( protocolVersion >= ProtocolConstants.MINECRAFT_1_13 )
+                    {
+                        type++;
+                    }
+                    throw new IllegalArgumentException( "Unknown meta type " + type  + ": Using mods? refer to disable_entity_metadata_rewrite in waterfall.yml" );
+                    // Waterfall end
             }
         }
 
@@ -317,6 +329,12 @@ public abstract class EntityMap
         int readerIndex = packet.readerIndex();
         int packetId = DefinedPacket.readVarInt( packet );
         int packetIdLength = packet.readerIndex() - readerIndex;
+
+        if (packetId < 0 || packetId > ints.length || packetId > varints.length) { // Invalid packet id
+            // Ignore these invalid packets for compatibility reasons
+            packet.readerIndex( readerIndex );
+            return;
+        }
 
         if ( ints[packetId] )
         {

@@ -10,6 +10,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.github.waterfallmc.waterfall.conf.WaterfallConfiguration;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelException;
@@ -87,12 +88,14 @@ import net.md_5.bungee.forge.ForgeConstants;
 import net.md_5.bungee.log.BungeeLogger;
 import net.md_5.bungee.log.LoggingOutputStream;
 import net.md_5.bungee.module.ModuleManager;
+import net.md_5.bungee.mojang.MojangAuthenticationFallback;
 import net.md_5.bungee.netty.PipelineUtils;
 import net.md_5.bungee.protocol.DefinedPacket;
 import net.md_5.bungee.protocol.ProtocolConstants;
 import net.md_5.bungee.protocol.packet.Chat;
 import net.md_5.bungee.protocol.packet.PluginMessage;
 import net.md_5.bungee.query.RemoteQuery;
+import net.md_5.bungee.redis.RedisConnector;
 import net.md_5.bungee.scheduler.BungeeScheduler;
 import net.md_5.bungee.util.CaseInsensitiveMap;
 import org.fusesource.jansi.AnsiConsole;
@@ -111,18 +114,18 @@ public class BungeeCord extends ProxyServer
      * Configuration.
      */
     @Getter
-    public final Configuration config = new Configuration();
+    public final Configuration config = new WaterfallConfiguration();
     /**
      * Localization bundle.
      */
     private ResourceBundle baseBundle;
     private ResourceBundle customBundle;
-    public EventLoopGroup eventLoops;
+    public EventLoopGroup bossEventLoopGroup, workerEventLoopGroup;
     /**
      * locations.yml save thread.
      */
     private final Timer saveThread = new Timer( "Reconnect Saver" );
-    private final Timer metricsThread = new Timer( "Metrics Thread" );
+    // private final Timer metricsThread = new Timer( "Metrics Thread" ); // Waterfall: Disable Metrics
     /**
      * Server socket listener.
      */
@@ -145,6 +148,7 @@ public class BungeeCord extends ProxyServer
      */
     @Getter
     public final PluginManager pluginManager;
+    @Getter private RedisConnector redisConnector;
     @Getter
     @Setter
     private ReconnectHandler reconnectHandler;
@@ -260,7 +264,8 @@ public class BungeeCord extends ProxyServer
             ResourceLeakDetector.setLevel( ResourceLeakDetector.Level.DISABLED ); // Eats performance
         }
 
-        eventLoops = PipelineUtils.newEventLoopGroup( 0, new ThreadFactoryBuilder().setNameFormat( "Netty IO Thread #%1$d" ).build() );
+        bossEventLoopGroup = PipelineUtils.newEventLoopGroup( 0, new ThreadFactoryBuilder().setNameFormat( "Netty Boss IO Thread #%1$d" ).build() );
+        workerEventLoopGroup = PipelineUtils.newEventLoopGroup( 0, new ThreadFactoryBuilder().setNameFormat( "Netty Worker IO Thread #%1$d" ).build() );
 
         File moduleDirectory = new File( "modules" );
         moduleManager.load( this, moduleDirectory );
@@ -280,6 +285,9 @@ public class BungeeCord extends ProxyServer
 
             getLogger().warning( "MinecraftForge support is currently unmaintained and may have unresolved issues. Please use at your own risk." );
         }
+
+        new MojangAuthenticationFallback(this);
+        redisConnector = new RedisConnector(this);
 
         isRunning = true;
 
@@ -302,7 +310,7 @@ public class BungeeCord extends ProxyServer
                 }
             }
         }, 0, TimeUnit.MINUTES.toMillis( 5 ) );
-        metricsThread.scheduleAtFixedRate( new Metrics(), 0, TimeUnit.MINUTES.toMillis( Metrics.PING_INTERVAL ) );
+        //metricsThread.scheduleAtFixedRate( new Metrics(), 0, TimeUnit.MINUTES.toMillis( Metrics.PING_INTERVAL ) ); // Waterfall: Disable Metrics
 
         Runtime.getRuntime().addShutdownHook( new Thread()
         {
@@ -349,7 +357,7 @@ public class BungeeCord extends ProxyServer
                     .option( ChannelOption.SO_REUSEADDR, true ) // TODO: Move this elsewhere!
                     .childAttr( PipelineUtils.LISTENER, info )
                     .childHandler( PipelineUtils.SERVER_CHILD )
-                    .group( eventLoops )
+                    .group( bossEventLoopGroup, workerEventLoopGroup )
                     .localAddress( info.getSocketAddress() )
                     .bind().addListener( listener );
 
@@ -372,7 +380,7 @@ public class BungeeCord extends ProxyServer
                         }
                     }
                 };
-                new RemoteQuery( this, info ).start( PipelineUtils.getDatagramChannel(), new InetSocketAddress( info.getHost().getAddress(), info.getQueryPort() ), eventLoops, bindListener );
+                new RemoteQuery( this, info ).start( PipelineUtils.getDatagramChannel(), new InetSocketAddress( info.getHost().getAddress(), info.getQueryPort() ), workerEventLoopGroup, bindListener );
             }
         }
     }
@@ -430,6 +438,7 @@ public class BungeeCord extends ProxyServer
         }
         isRunning = false;
 
+        redisConnector.stop();
         stopListeners();
         getLogger().info( "Closing pending connections" );
 
@@ -460,7 +469,7 @@ public class BungeeCord extends ProxyServer
             reconnectHandler.close();
         }
         saveThread.cancel();
-        metricsThread.cancel();
+        //metricsThread.cancel(); // Waterfall: Disable Metrics
 
         getLogger().info( "Disabling plugins" );
         for ( Plugin plugin : Lists.reverse( new ArrayList<>( pluginManager.getPlugins() ) ) )
@@ -481,12 +490,14 @@ public class BungeeCord extends ProxyServer
         }
 
         getLogger().info( "Closing IO threads" );
-        eventLoops.shutdownGracefully();
-        try
-        {
-            eventLoops.awaitTermination( Long.MAX_VALUE, TimeUnit.NANOSECONDS );
-        } catch ( InterruptedException ex )
-        {
+                bossEventLoopGroup.shutdownGracefully();
+                workerEventLoopGroup.shutdownGracefully();
+                while (true) {
+                    try {
+                        bossEventLoopGroup.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+                        workerEventLoopGroup.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+                        break;
+                    } catch (InterruptedException ignored) {}
         }
 
         getLogger().info( "Thank you and goodbye" );
@@ -559,7 +570,9 @@ public class BungeeCord extends ProxyServer
         String translation = "<translation '" + name + "' missing>";
         try
         {
-            translation = MessageFormat.format( customBundle != null && customBundle.containsKey( name ) ? customBundle.getString( name ) : baseBundle.getString( name ), args );
+            final String string = customBundle != null && customBundle.containsKey( name ) ? customBundle.getString( name ) : baseBundle.getString( name );
+
+            translation = ( args.length == 0 ) ? string : MessageFormat.format( string, args );
         } catch ( MissingResourceException ex )
         {
         }
@@ -676,7 +689,7 @@ public class BungeeCord extends ProxyServer
     @Override
     public String getGameVersion()
     {
-        return ProtocolConstants.SUPPORTED_VERSIONS.get( 0 ) + "-" + ProtocolConstants.SUPPORTED_VERSIONS.get( ProtocolConstants.SUPPORTED_VERSIONS.size() - 1 );
+        return getConfig().getGameVersion(); // Waterfall
     }
 
     @Override

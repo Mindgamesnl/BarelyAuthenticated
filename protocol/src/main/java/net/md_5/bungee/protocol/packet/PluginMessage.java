@@ -4,6 +4,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufUtil; // Waterfall
 import java.io.ByteArrayInputStream;
 import java.io.DataInput;
 import java.io.DataInputStream;
@@ -56,9 +57,22 @@ public class PluginMessage extends DefinedPacket
             return ( input.getTag().equals( "REGISTER" ) || input.getTag().equals( "minecraft:register" ) || input.getTag().equals( "MC|Brand" ) || input.getTag().equals( "minecraft:brand" ) ) && input.getData().length < Byte.MAX_VALUE;
         }
     };
-    //
+
+    public PluginMessage(String tag, ByteBuf data, boolean allowExtendedPacket) {
+        this(tag, ByteBufUtil.getBytes(data), allowExtendedPacket);
+    }
+
     private String tag;
     private byte[] data;
+
+    public void setData(byte[] data) {
+        this.data = Preconditions.checkNotNull(data, "Null data");
+    }
+
+    public void setData(ByteBuf buf) {
+        Preconditions.checkNotNull(buf, "Null buffer");
+        setData(ByteBufUtil.getBytes(buf));
+    }
 
     /**
      * Allow this packet to be sent as an "extended" packet.

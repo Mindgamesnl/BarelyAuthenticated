@@ -4,6 +4,7 @@ import com.google.common.base.Preconditions;
 import com.mojang.brigadier.context.StringRange;
 import com.mojang.brigadier.suggestion.Suggestion;
 import com.mojang.brigadier.suggestion.Suggestions;
+import io.github.waterfallmc.waterfall.StringUtil;
 import io.netty.channel.Channel;
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -37,6 +38,8 @@ public class UpstreamBridge extends PacketHandler
 
     private final ProxyServer bungee;
     private final UserConnection con;
+
+    private long lastTabCompletion = -1;
 
     public UpstreamBridge(ProxyServer bungee, UserConnection con)
     {
@@ -140,6 +143,7 @@ public class UpstreamBridge extends PacketHandler
     {
         int maxLength = ( con.getPendingConnection().getVersion() >= ProtocolConstants.MINECRAFT_1_11 ) ? 256 : 100;
         Preconditions.checkArgument( chat.getMessage().length() <= maxLength, "Chat message too long" ); // Mojang limit, check on updates
+        Preconditions.checkArgument(!StringUtil.isBlank(chat.getMessage()), "Chat message is empty");
 
         ChatEvent chatEvent = new ChatEvent( con, con.getServer(), chat.getMessage() );
         if ( !bungee.getPluginManager().callEvent( chatEvent ).isCancelled() )
@@ -156,6 +160,20 @@ public class UpstreamBridge extends PacketHandler
     @Override
     public void handle(TabCompleteRequest tabComplete) throws Exception
     {
+        // Waterfall start - tab limiter
+        if ( bungee.getConfig().getTabThrottle() > 0 &&
+                ( con.getPendingConnection().getVersion() >= ProtocolConstants.MINECRAFT_1_13
+                && !bungee.getConfig().isDisableModernTabLimiter()))
+        {
+            long now = System.currentTimeMillis();
+            if ( lastTabCompletion > 0 && (now - lastTabCompletion) <= bungee.getConfig().getTabThrottle() )
+            {
+                throw CancelSendSignal.INSTANCE;
+            }
+            lastTabCompletion = now;
+        }
+
+        // Waterfall end - tab limiter
         List<String> suggestions = new ArrayList<>();
 
         if ( tabComplete.getCursor().startsWith( "/" ) )
@@ -254,6 +272,6 @@ public class UpstreamBridge extends PacketHandler
     @Override
     public String toString()
     {
-        return "[" + con.getName() + "] -> UpstreamBridge";
+        return "[" + con.getAddress() + "|" + con.getName() + "] -> UpstreamBridge";
     }
 }

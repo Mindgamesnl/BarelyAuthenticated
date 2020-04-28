@@ -47,10 +47,15 @@ public class YamlConfig implements ConfigurationAdapter
     }
     private final Yaml yaml;
     private Map<String, Object> config;
-    private final File file = new File( "config.yml" );
+    private final File file;
 
-    public YamlConfig()
+    public YamlConfig() {
+        this(new File("config.yml"));
+    }
+
+    public YamlConfig(File file)
     {
+        this.file = file;
         DumperOptions options = new DumperOptions();
         options.setDefaultFlowStyle( DumperOptions.FlowStyle.BLOCK );
         yaml = new Yaml( options );
@@ -58,6 +63,11 @@ public class YamlConfig implements ConfigurationAdapter
 
     @Override
     public void load()
+    {
+        load(true);
+    }
+
+    public void load(boolean doPermissions)
     {
         try
         {
@@ -86,6 +96,7 @@ public class YamlConfig implements ConfigurationAdapter
             throw new RuntimeException( "Could not load configuration!", ex );
         }
 
+        if(!doPermissions) return; // Waterfall
         Map<String, Object> permissions = get( "permissions", null );
         if ( permissions == null )
         {

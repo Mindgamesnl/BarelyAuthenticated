@@ -110,19 +110,22 @@ public class BungeeServerInfo implements ServerInfo
         Preconditions.checkNotNull( channel, "channel" );
         Preconditions.checkNotNull( data, "data" );
 
-        synchronized ( packetQueue )
-        {
-            Server server = ( players.isEmpty() ) ? null : players.iterator().next().getServer();
-            if ( server != null )
-            {
-                server.sendData( channel, data );
-                return true;
-            } else if ( queue )
-            {
-                packetQueue.add( new PluginMessage( channel, data, false ) );
-            }
-            return false;
+        Server server;
+
+        synchronized (players) {
+            server = players.isEmpty() ? null : players.iterator().next().getServer();
         }
+
+        if (server != null) {
+            server.sendData(channel, data);
+            return true;
+        } else if (queue) {
+            synchronized (packetQueue) {
+                packetQueue.add(new PluginMessage(channel, data, false));
+            }
+        }
+
+        return false;
     }
 
     private long lastPing;
@@ -181,7 +184,7 @@ public class BungeeServerInfo implements ServerInfo
         };
         new Bootstrap()
                 .channel( PipelineUtils.getChannel( socketAddress ) )
-                .group( BungeeCord.getInstance().eventLoops )
+                .group( BungeeCord.getInstance().workerEventLoopGroup )
                 .handler( PipelineUtils.BASE )
                 .option( ChannelOption.CONNECT_TIMEOUT_MILLIS, BungeeCord.getInstance().getConfig().getRemotePingTimeout() )
                 .remoteAddress( socketAddress )
