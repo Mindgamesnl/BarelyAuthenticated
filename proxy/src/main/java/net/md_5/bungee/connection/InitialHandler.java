@@ -354,7 +354,7 @@ public class InitialHandler extends PacketHandler implements PendingConnection
                 }
                 break;
             default:
-                throw new IllegalArgumentException( "Cannot request protocol " + handshake.getRequestedProtocol() );
+                throw new QuietException( "Cannot request protocol " + handshake.getRequestedProtocol() );
         }
     }
 
