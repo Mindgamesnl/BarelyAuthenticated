@@ -47,6 +47,7 @@ import net.md_5.bungee.api.score.Score;
 import net.md_5.bungee.api.score.Scoreboard;
 import net.md_5.bungee.api.score.Team;
 import net.md_5.bungee.chat.ComponentSerializer;
+import net.md_5.bungee.entitymap.EntityMap;
 import net.md_5.bungee.netty.ChannelWrapper;
 import net.md_5.bungee.netty.PacketHandler;
 import net.md_5.bungee.protocol.DefinedPacket;
@@ -140,7 +141,11 @@ public class DownstreamBridge extends PacketHandler
     @Override
     public void handle(PacketWrapper packet) throws Exception
     {
-        con.getEntityRewrite().rewriteClientbound( packet.buf, con.getServerEntityId(), con.getClientEntityId(), con.getPendingConnection().getVersion() );
+        EntityMap rewrite = con.getEntityRewrite();
+        if ( rewrite != null )
+        {
+            rewrite.rewriteClientbound( packet.buf, con.getServerEntityId(), con.getClientEntityId(), con.getPendingConnection().getVersion() );
+        }
         con.sendPacket( packet );
     }
 
@@ -395,6 +400,25 @@ public class DownstreamBridge extends PacketHandler
                 {
                     out.writeUTF( "unix://" + ( (DomainSocketAddress) con.getSocketAddress() ).path() );
                     out.writeInt( 0 );
+                }
+            }
+            if ( subChannel.equals( "IPOther" ) )
+            {
+                ProxiedPlayer player = bungee.getPlayer( in.readUTF() );
+                if ( player != null )
+                {
+                    out.writeUTF( "IPOther" );
+                    out.writeUTF( player.getName() );
+                    if ( player.getSocketAddress() instanceof InetSocketAddress )
+                    {
+                        InetSocketAddress address = (InetSocketAddress) player.getSocketAddress();
+                        out.writeUTF( address.getHostString() );
+                        out.writeInt( address.getPort() );
+                    } else
+                    {
+                        out.writeUTF( "unix://" + ( (DomainSocketAddress) player.getSocketAddress() ).path() );
+                        out.writeInt( 0 );
+                    }
                 }
             }
             if ( subChannel.equals( "PlayerCount" ) )

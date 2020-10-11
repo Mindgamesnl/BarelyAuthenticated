@@ -30,6 +30,8 @@ public class ProtocolConstants
     public static final int MINECRAFT_1_15_2 = 578;
     public static final int MINECRAFT_1_16 = 735;
     public static final int MINECRAFT_1_16_1 = 736;
+    public static final int MINECRAFT_1_16_2 = 751;
+    public static final int MINECRAFT_1_16_3 = 753;
     public static final List<String> SUPPORTED_VERSIONS = Arrays.asList(
             "1.8.x",
             "1.9.x",
@@ -65,7 +67,9 @@ public class ProtocolConstants
             ProtocolConstants.MINECRAFT_1_15_1,
             ProtocolConstants.MINECRAFT_1_15_2,
             ProtocolConstants.MINECRAFT_1_16,
-            ProtocolConstants.MINECRAFT_1_16_1
+            ProtocolConstants.MINECRAFT_1_16_1,
+            ProtocolConstants.MINECRAFT_1_16_2,
+            ProtocolConstants.MINECRAFT_1_16_3
     );
 
     public static final boolean isBeforeOrEq(int before, int other)
