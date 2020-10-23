@@ -5,6 +5,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import java.net.InetSocketAddress;
 import java.util.Locale;
+import java.util.Arrays; // Waterfall
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
@@ -31,7 +32,9 @@ import net.md_5.bungee.forge.ForgeUtils;
 import net.md_5.bungee.netty.ChannelWrapper;
 import net.md_5.bungee.netty.HandlerBoss;
 import net.md_5.bungee.netty.PacketHandler;
+import net.md_5.bungee.netty.PipelineUtils;
 import net.md_5.bungee.protocol.DefinedPacket;
+import net.md_5.bungee.protocol.MinecraftDecoder;
 import net.md_5.bungee.protocol.PacketWrapper;
 import net.md_5.bungee.protocol.Protocol;
 import net.md_5.bungee.protocol.ProtocolConstants;
@@ -103,15 +106,39 @@ public class ServerConnector extends PacketHandler
             String newHost = copiedHandshake.getHost() + "\00" + user.getAddress().getHostString() + "\00" + user.getUUID();
 
             LoginResult profile = user.getPendingConnection().getLoginProfile();
+
+            // Handle properties.
+            LoginResult.Property[] properties = new LoginResult.Property[0];
+
             if ( profile != null && profile.getProperties() != null && profile.getProperties().length > 0 )
             {
-                newHost += "\00" + BungeeCord.getInstance().gson.toJson( profile.getProperties() );
+                properties = profile.getProperties();
             }
+
+            if ( user.getForgeClientHandler().isFmlTokenInHandshake() )
+            {
+                // Get the current properties and copy them into a slightly bigger array.
+                LoginResult.Property[] newp = Arrays.copyOf( properties, properties.length + 2 );
+
+                // Add a new profile property that specifies that this user is a Forge user.
+                newp[newp.length - 2] = new LoginResult.Property( ForgeConstants.FML_LOGIN_PROFILE, "true", null );
+
+                // If we do not perform the replacement, then the IP Forwarding code in Spigot et. al. will try to split on this prematurely.
+                newp[newp.length - 1] = new LoginResult.Property( ForgeConstants.EXTRA_DATA, user.getExtraDataInHandshake().replaceAll( "\0", "\1"), "" );
+
+                // All done.
+                properties = newp;
+            }
+
+            // If we touched any properties, then append them
+            if (properties.length > 0) {
+                newHost += "\00" + BungeeCord.getInstance().gson.toJson(properties);
+            }
+
             copiedHandshake.setHost( newHost );
         } else if ( !user.getExtraDataInHandshake().isEmpty() )
         {
-            // Only restore the extra data if IP forwarding is off.
-            // TODO: Add support for this data with IP forwarding.
+            // Restore the extra data
             copiedHandshake.setHost( copiedHandshake.getHost() + user.getExtraDataInHandshake() );
         }
 
@@ -178,6 +205,12 @@ public class ServerConnector extends PacketHandler
 
         ServerConnection server = new ServerConnection( ch, target );
         ServerConnectedEvent event = new ServerConnectedEvent( user, server );
+
+        if (server.isForgeServer() && user.isForgeUser()) {
+            ((MinecraftDecoder) server.getCh().getHandle().pipeline().get(PipelineUtils.PACKET_DECODER)).setSupportsForge(true);
+            ((MinecraftDecoder) user.getCh().getHandle().pipeline().get(PipelineUtils.PACKET_DECODER)).setSupportsForge(true);
+        }
+
         bungee.getPluginManager().callEvent( event );
 
         ch.write( BungeeCord.getInstance().registerChannels( user.getPendingConnection().getVersion() ) );
@@ -195,7 +228,7 @@ public class ServerConnector extends PacketHandler
             ch.write( message );
         }
 
-        if ( user.getSettings() != null )
+        if (!user.isDisableEntityMetadataRewrite() && user.getSettings() != null )
         {
             ch.write( user.getSettings() );
         }
@@ -248,6 +281,7 @@ public class ServerConnector extends PacketHandler
             user.getTabListHandler().onServerChange();
 
             Scoreboard serverScoreboard = user.getServerSentScoreboard();
+            if ( !user.isDisableEntityMetadataRewrite() ) { // Waterfall
             for ( Objective objective : serverScoreboard.getObjectives() )
             {
                 user.unsafe().sendPacket( new ScoreboardObjective( objective.getName(), objective.getValue(), ScoreboardObjective.HealthDisplay.fromString( objective.getType() ), (byte) 1 ) );
@@ -260,6 +294,7 @@ public class ServerConnector extends PacketHandler
             {
                 user.unsafe().sendPacket( new net.md_5.bungee.protocol.packet.Team( team.getName() ) );
             }
+            } // Waterfall
             serverScoreboard.clear();
 
             for ( UUID bossbar : user.getSentBossBars() )
@@ -278,7 +313,7 @@ public class ServerConnector extends PacketHandler
             }
 
             user.setDimensionChange( true );
-            if ( login.getDimension() == user.getDimension() )
+            if ( !user.isDisableEntityMetadataRewrite() && login.getDimension() == user.getDimension() ) // Waterfall - defer
             {
                 user.unsafe().sendPacket( new Respawn( (Integer) login.getDimension() >= 0 ? -1 : 0, login.getWorldName(), login.getSeed(), login.getDifficulty(), login.getGameMode(), login.getPreviousGameMode(), login.getLevelType(), login.isDebug(), login.isFlat(), false ) );
             }
@@ -332,7 +367,7 @@ public class ServerConnector extends PacketHandler
     public void handle(Kick kick) throws Exception
     {
         ServerInfo def = user.updateAndGetNextServer( target );
-        ServerKickEvent event = new ServerKickEvent( user, target, ComponentSerializer.parse( kick.getMessage() ), def, ServerKickEvent.State.CONNECTING );
+        ServerKickEvent event = new ServerKickEvent( user, target, ComponentSerializer.parse( kick.getMessage() ), def, ServerKickEvent.State.CONNECTING, ServerKickEvent.Cause.SERVER );  // Waterfall
         if ( event.getKickReason().toLowerCase( Locale.ROOT ).contains( "outdated" ) && def != null )
         {
             // Pre cancel the event if we are going to try another server
@@ -409,6 +444,6 @@ public class ServerConnector extends PacketHandler
     @Override
     public String toString()
     {
-        return "[" + user.getName() + "] <-> ServerConnector [" + target.getName() + "]";
+        return "[" + user.getName() + "|" + user.getAddress() + "] <-> ServerConnector [" + target.getName() + "]";
     }
 }

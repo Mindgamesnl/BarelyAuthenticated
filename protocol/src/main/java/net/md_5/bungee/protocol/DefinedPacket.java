@@ -45,6 +45,34 @@ public abstract class DefinedPacket
         return new String( b, Charsets.UTF_8 );
     }
 
+    // Waterfall start
+    public static void writeString(String s, final int maxLength, ByteBuf buf)
+    {
+        if ( s.length() > maxLength )
+        {
+            throw new OverflowPacketException( String.format( "Cannot send string longer than %s (got %s characters)", maxLength, s.length() ) );
+        }
+
+        byte[] b = s.getBytes( Charsets.UTF_8 );
+        writeVarInt( b.length, buf );
+        buf.writeBytes( b );
+    }
+
+    public static String readString(ByteBuf buf, final int maxLength)
+    {
+        int len = readVarInt( buf );
+        if ( len > maxLength )
+        {
+            throw new OverflowPacketException( String.format( "Cannot receive string longer than %s (got %s characters)", maxLength, len ) );
+        }
+
+        byte[] b = new byte[ len ];
+        buf.readBytes( b );
+
+        return new String( b, Charsets.UTF_8 );
+    }
+    // Waterfall end
+
     public static void writeArray(byte[] b, ByteBuf buf)
     {
         if ( b.length > Short.MAX_VALUE )
@@ -125,13 +153,18 @@ public abstract class DefinedPacket
         byte in;
         while ( true )
         {
+            // Waterfall start
+            if (input.readableBytes() == 0) {
+                throw new BadPacketException("No more bytes reading varint");
+            }
+            // Waterfall end
             in = input.readByte();
 
             out |= ( in & 0x7F ) << ( bytes++ * 7 );
 
             if ( bytes > maxBytes )
             {
-                throw new RuntimeException( "VarInt too big" );
+                throw new BadPacketException( "VarInt too big" );
             }
 
             if ( ( in & 0x80 ) != 0x80 )

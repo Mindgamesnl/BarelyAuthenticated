@@ -29,7 +29,7 @@ public class Team
 
     public void addPlayer(String name)
     {
-        players.add( name );
+        players.add(name.intern());
     }
 
     public void removePlayer(String name)

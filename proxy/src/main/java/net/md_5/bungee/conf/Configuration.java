@@ -11,12 +11,15 @@ import java.util.UUID;
 import java.util.logging.Level;
 import javax.imageio.ImageIO;
 import lombok.Getter;
+
+import net.md_5.bungee.BungeeCord;
 import net.md_5.bungee.api.Favicon;
 import net.md_5.bungee.api.ProxyConfig;
 import net.md_5.bungee.api.ProxyServer;
 import net.md_5.bungee.api.config.ConfigurationAdapter;
 import net.md_5.bungee.api.config.ListenerInfo;
 import net.md_5.bungee.api.config.ServerInfo;
+import net.md_5.bungee.api.connection.ProxiedPlayer;
 import net.md_5.bungee.util.CaseInsensitiveMap;
 import net.md_5.bungee.util.CaseInsensitiveSet;
 
@@ -24,7 +27,7 @@ import net.md_5.bungee.util.CaseInsensitiveSet;
  * Core configuration for the proxy.
  */
 @Getter
-public class Configuration implements ProxyConfig
+public abstract class Configuration implements ProxyConfig
 {
 
     /**
@@ -39,6 +42,18 @@ public class Configuration implements ProxyConfig
      * Set of all listeners.
      */
     private Collection<ListenerInfo> listeners;
+
+    private int mojangFailsBeforeFallback = 5;
+    private int mojangSuccessesBeforeOnline = 15;
+    private int redisIpStorageExpiery = 3600; // 12 hours
+    private int redisPort = 6379;
+    private String redisHost = "localhost";
+    private String redisPassword = "none";
+    private int redisDatabase = 15;
+    private boolean redisUsesSSL = false;
+    private int mojangAttemptInterval = 20;
+    private boolean preferRedisAuthentication = true;
+
     /**
      * Set of all servers.
      */
@@ -82,6 +97,17 @@ public class Configuration implements ProxyConfig
             }
         }
 
+        mojangFailsBeforeFallback = adapter.getInt("mojangFailsBeforeFallback", mojangFailsBeforeFallback);
+        mojangSuccessesBeforeOnline = adapter.getInt("mojangSuccessesBeforeOnline", mojangSuccessesBeforeOnline);
+        redisIpStorageExpiery = adapter.getInt("redisIpStorageExpiery", redisIpStorageExpiery);
+        redisPort = adapter.getInt( "redisPort", redisPort );
+        redisHost = adapter.getString( "redisHost", redisHost );
+        redisPassword = adapter.getString( "redisPassword", redisPassword );
+        redisDatabase = adapter.getInt( "redisDatabase", redisDatabase );
+        redisUsesSSL = adapter.getBoolean( "redisUsesSSL", redisUsesSSL );
+        mojangAttemptInterval = adapter.getInt("mojangAttemptInterval", mojangAttemptInterval);
+        preferRedisAuthentication = adapter.getBoolean("preferRedisAuthentication", preferRedisAuthentication);
+
         listeners = adapter.getListeners();
         timeout = adapter.getInt( "timeout", timeout );
         uuid = adapter.getString( "stats", uuid );
@@ -111,20 +137,38 @@ public class Configuration implements ProxyConfig
             servers = new CaseInsensitiveMap<>( newServers );
         } else
         {
-            for ( ServerInfo oldServer : servers.values() )
-            {
-                // Don't allow servers to be removed
-                Preconditions.checkArgument( newServers.containsKey( oldServer.getName() ), "Server %s removed on reload!", oldServer.getName() );
-            }
+            Map<String, ServerInfo> oldServers = this.servers;
 
-            // Add new servers
-            for ( Map.Entry<String, ServerInfo> newServer : newServers.entrySet() )
+            for ( ServerInfo oldServer : oldServers.values() )
             {
-                if ( !servers.containsValue( newServer.getValue() ) )
-                {
-                    servers.put( newServer.getKey(), newServer.getValue() );
+                ServerInfo newServer = newServers.get(oldServer.getName());
+                if ((newServer == null || !oldServer.getAddress().equals(newServer.getAddress())) && !oldServer.getPlayers().isEmpty()) {
+                    BungeeCord.getInstance().getLogger().info("Moving players off of server: " + oldServer.getName());
+                    // The server is being removed, or having it's address changed
+                    for (ProxiedPlayer player : oldServer.getPlayers()) {
+                        ListenerInfo listener = player.getPendingConnection().getListener();
+                        String destinationName = newServers.get(listener.getDefaultServer()) == null ? listener.getDefaultServer() : listener.getFallbackServer();
+                        ServerInfo destination = newServers.get(destinationName);
+                        if (destination == null) {
+                            BungeeCord.getInstance().getLogger().severe("Couldn't find server " + listener.getDefaultServer() + " or " + listener.getFallbackServer() + " to put player " + player.getName() + " on");
+                            player.disconnect(BungeeCord.getInstance().getTranslation("fallback_kick", "Not found on reload"));
+                            continue;
+                        }
+                        player.connect(destination, (success, cause) -> {
+                            if (!success) {
+                                BungeeCord.getInstance().getLogger().log(Level.WARNING, "Failed to connect " + player.getName() + " to " + destination.getName(), cause);
+                                player.disconnect(BungeeCord.getInstance().getTranslation("fallback_kick", cause.getCause().getClass().getName()));
+                            }
+                        });
+                    }
+                } else {
+                    // This server isn't new or removed, we'll use bungees behavior of just ignoring
+                    // any changes to info outside of the address, this is not ideal, but the alternative
+                    // requires resetting multiple objects of which have no proper identity
+                    newServers.put(oldServer.getName(), oldServer);
                 }
             }
+            this.servers = new CaseInsensitiveMap<>(newServers);
         }
 
         for ( ListenerInfo listener : listeners )

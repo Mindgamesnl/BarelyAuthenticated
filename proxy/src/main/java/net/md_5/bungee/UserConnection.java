@@ -1,7 +1,9 @@
 package net.md_5.bungee;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Multimap;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -72,6 +74,7 @@ public final class UserConnection implements ProxiedPlayer
     @NonNull
     private final ProxyServer bungee;
     @NonNull
+    @Getter
     private final ChannelWrapper ch;
     @Getter
     @NonNull
@@ -123,6 +126,10 @@ public final class UserConnection implements ProxiedPlayer
     private final Scoreboard serverSentScoreboard = new Scoreboard();
     @Getter
     private final Collection<UUID> sentBossBars = new HashSet<>();
+    // Waterfall start
+    @Getter
+    private final Multimap<Integer, Integer> potions = HashMultimap.create();
+    // Waterfall end
     /*========================================================================*/
     @Getter
     private String displayName;
@@ -163,8 +170,12 @@ public final class UserConnection implements ProxiedPlayer
 
         forgeClientHandler = new ForgeClientHandler( this );
 
+        // No-config FML handshake marker.
         // Set whether the connection has a 1.8 FML marker in the handshake.
-        forgeClientHandler.setFmlTokenInHandshake( this.getPendingConnection().getExtraDataInHandshake().contains( ForgeConstants.FML_HANDSHAKE_TOKEN ) );
+        if (this.getPendingConnection().getExtraDataInHandshake().contains( ForgeConstants.FML_HANDSHAKE_TOKEN ))
+        {
+            forgeClientHandler.setFmlTokenInHandshake( true );
+        }
     }
 
     public void sendPacket(PacketWrapper packet)
@@ -249,9 +260,20 @@ public final class UserConnection implements ProxiedPlayer
 
     public void connect(ServerInfo info, final Callback<Boolean> callback, final boolean retry, ServerConnectEvent.Reason reason)
     {
+        // Waterfall start
+        connect(info, callback, retry, reason, 5000); // todo: configurable
+    }
+    public void connect(ServerInfo info, final Callback<Boolean> callback, final boolean retry, int timeout) {
+        connect(info, callback, retry, ServerConnectEvent.Reason.PLUGIN, timeout);
+    }
+
+    public void connect(ServerInfo info, final Callback<Boolean> callback, final boolean retry, ServerConnectEvent.Reason reason, final int timeout)
+    {
+        // Waterfall end
         Preconditions.checkNotNull( info, "info" );
 
         ServerConnectRequest.Builder builder = ServerConnectRequest.builder().retry( retry ).reason( reason ).target( info );
+        builder.connectTimeout(timeout); // Waterfall
         if ( callback != null )
         {
             // Convert the Callback<Boolean> to be compatible with Callback<Result> from ServerConnectRequest.
@@ -345,7 +367,7 @@ public final class UserConnection implements ProxiedPlayer
                     if ( request.isRetry() && def != null && ( getServer() == null || def != getServer().getInfo() ) )
                     {
                         sendMessage( bungee.getTranslation( "fallback_lobby" ) );
-                        connect( def, null, true, ServerConnectEvent.Reason.LOBBY_FALLBACK );
+                        connect( def, null, true, ServerConnectEvent.Reason.LOBBY_FALLBACK, request.getConnectTimeout() ); // Waterfall
                     } else if ( dimensionChange )
                     {
                         disconnect( bungee.getTranslation( "fallback_kick", future.cause().getClass().getName() ) );
@@ -731,4 +753,10 @@ public final class UserConnection implements ProxiedPlayer
     {
         return serverSentScoreboard;
     }
+
+    // Waterfall start
+    public boolean isDisableEntityMetadataRewrite() {
+        return entityRewrite == net.md_5.bungee.entitymap.EntityMap_Dummy.INSTANCE;
+    }
+    // Waterfall end
 }

@@ -40,6 +40,11 @@ public class Chat extends DefinedPacket
     @Override
     public void read(ByteBuf buf, ProtocolConstants.Direction direction, int protocolVersion)
     {
+        // Waterfall start
+        if (direction == ProtocolConstants.Direction.TO_CLIENT) {
+            this.message = readString(buf, Short.MAX_VALUE * 8 + 8);
+        } else
+        // Waterfall end
         message = readString( buf );
         if ( direction == ProtocolConstants.Direction.TO_CLIENT )
         {
@@ -54,6 +59,11 @@ public class Chat extends DefinedPacket
     @Override
     public void write(ByteBuf buf, ProtocolConstants.Direction direction, int protocolVersion)
     {
+        // Waterfall start
+        if (direction == ProtocolConstants.Direction.TO_CLIENT) {
+            writeString(this.message, Short.MAX_VALUE * 8 + 8, buf);
+        } else
+        // Waterfall end
         writeString( message, buf );
         if ( direction == ProtocolConstants.Direction.TO_CLIENT )
         {

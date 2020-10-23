@@ -27,8 +27,7 @@ public class Varint21FrameDecoder extends ByteToMessageDecoder
 
         in.markReaderIndex();
 
-        final byte[] buf = new byte[ 3 ];
-        for ( int i = 0; i < buf.length; i++ )
+        for ( int i = 0; i < 3; i++ ) // Waterfall
         {
             if ( !in.isReadable() )
             {
@@ -36,11 +35,14 @@ public class Varint21FrameDecoder extends ByteToMessageDecoder
                 return;
             }
 
-            buf[i] = in.readByte();
-            if ( buf[i] >= 0 )
+            // Waterfall start
+            byte read = in.readByte();
+            if ( read >= 0 )
             {
-                int length = DefinedPacket.readVarInt( Unpooled.wrappedBuffer( buf ) );
-                if ( length == 0 )
+                in.resetReaderIndex();
+                int length = DefinedPacket.readVarInt( in );
+                // Waterfall end
+                if ( false && length == 0) // Waterfall - ignore
                 {
                     throw new CorruptedFrameException( "Empty Packet!" );
                 }
@@ -49,26 +51,11 @@ public class Varint21FrameDecoder extends ByteToMessageDecoder
                 {
                     in.resetReaderIndex();
                     return;
-                } else
-                {
-                    if ( in.hasMemoryAddress() )
-                    {
-                        out.add( in.slice( in.readerIndex(), length ).retain() );
-                        in.skipBytes( length );
-                    } else
-                    {
-                        if ( !DIRECT_WARNING )
-                        {
-                            DIRECT_WARNING = true;
-                            System.out.println( "Netty is not using direct IO buffers." );
-                        }
-
-                        // See https://github.com/SpigotMC/BungeeCord/issues/1717
-                        ByteBuf dst = ctx.alloc().directBuffer( length );
-                        in.readBytes( dst );
-                        out.add( dst );
-                    }
+                    // Waterfall start
+                } else {
+                    out.add(in.readRetainedSlice(length));
                     return;
+                    // Waterfall end
                 }
             }
         }

@@ -44,12 +44,26 @@ public class ServerKickEvent extends Event implements Cancellable
      * State in which the kick occured.
      */
     private State state;
+    // Waterfall start
+    /**
+     * Circumstances which led to the kick.
+     */
+    private Cause cause;
+    // Waterfall end
 
     public enum State
     {
 
         CONNECTING, CONNECTED, UNKNOWN;
     }
+
+    // Waterfall start
+    public enum Cause
+    {
+
+        SERVER, LOST_CONNECTION, EXCEPTION, UNKNOWN;
+    }
+    // Waterfall end
 
     @Deprecated
     public ServerKickEvent(ProxiedPlayer player, BaseComponent[] kickReasonComponent, ServerInfo cancelServer)
@@ -63,14 +77,23 @@ public class ServerKickEvent extends Event implements Cancellable
         this( player, player.getServer().getInfo(), kickReasonComponent, cancelServer, state );
     }
 
+    // Waterfall start
+    @Deprecated
     public ServerKickEvent(ProxiedPlayer player, ServerInfo kickedFrom, BaseComponent[] kickReasonComponent, ServerInfo cancelServer, State state)
+    {
+        this( player, kickedFrom, kickReasonComponent, cancelServer, state, Cause.UNKNOWN );
+    }
+
+    public ServerKickEvent(ProxiedPlayer player, ServerInfo kickedFrom, BaseComponent[] kickReasonComponent, ServerInfo cancelServer, State state, Cause cause)
     {
         this.player = player;
         this.kickedFrom = kickedFrom;
         this.kickReasonComponent = kickReasonComponent;
         this.cancelServer = cancelServer;
         this.state = state;
+        this.cause = cause;
     }
+    // Waterfall end
 
     @Deprecated
     public String getKickReason()
