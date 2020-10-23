@@ -60,6 +60,9 @@ public class MinecraftDecoder extends MessageToMessageDecoder<ByteBuf>
 
                 if ( in.isReadable() )
                 {
+                    // allow in recent builds
+                    if (protocolVersion > 735) return;
+
                     throw new BadPacketException( "Did not read all bytes from packet " + packet.getClass() + " " + packetId + " Protocol " + protocol + " Direction " + prot.getDirection() );
                 }
             } else
