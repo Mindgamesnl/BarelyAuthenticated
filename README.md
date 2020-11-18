@@ -1,6 +1,9 @@
 BungeeCord - BarelyAuthenticated edition
 ==========
-A simple fork that has fallback measures on redis for when mojang craps out. Build for BlockParty by barelyalive. It works by caching gameprofiles based on player's ip address and name, when the Mojang api is detected to be unstable, it'll fall back on its own cache to accept players who joined before. New players won't be able to join until mojang is back up.
+A simple fork that has fallback measures on redis for when mojang craps out. Build for BlockParty by barelyalive. It works by caching gameprofiles based on player's ip address and name, when the Mojang api is detected to be unstable, it'll fall back on its own cache Redis to accept players who joined before. New players won't be able to join until mojang is back up.
+
+# Depends on
+Redis, ofcourse.
 
 # Setup
 The following options will be added and required to be filled in in your bungeecord config.yml:
